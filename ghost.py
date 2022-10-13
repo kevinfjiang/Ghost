@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum, auto
-from typing import List
+from typing import List, Optional
 
 
 class Player(Enum):
@@ -10,19 +10,22 @@ class Player(Enum):
     UNDETERMINED = auto()
 
     def change_turn(self) -> Player:
-        if self == Player.UNDETERMINED: 
-            raise TypeError("Unsupported")
-        return Player.OTHER if self.value == Player.YOU.value else Player.YOU
+        if self == Player.UNDETERMINED:
+            raise NotImplementedError(
+                f"Not implemented for following type {Player.UNDETERMINED}"
+            )
+        return Player.OTHER if self == Player.YOU else Player.YOU
 
 
 class Trie:
     class Node:
-        def __init__(self, rbase=26) -> Trie.Node:
-            self.letters: List[Trie.Node] = [None for _ in range(rbase)]
-            self.winner: Player = Player.UNDETERMINED
+        def __init__(self, rbase=26):
+            self.letters: List[Optional[Trie.Node]] = [None for _ in range(rbase)]
+            self.winner: Player = Player.UNDETERMINED  # Winner of current level
             self.ender = False  # If current level is an ending word
+            return
 
-    def __init__(self, first_move=True, rbase=26, refchar='a', head=None):
+    def __init__(self, first_move=True, rbase=26, refchar="a", head: Node = None):
         self.rbase = rbase
         self.first_move = first_move
         self.refchar = refchar
@@ -47,18 +50,20 @@ class Trie:
         curr = self.head
 
         for letter in word:
-            if curr.ender:  break
+            if curr.ender:
+                break
 
             if curr.letters[self._pos(letter)] is None:
                 curr.letters[self._pos(letter)] = Trie.Node(self.rbase)
 
-            curr = curr.letters[self._pos(letter)]  # Traverses and adds word to Trie to traverse Trie
+            curr = curr.letters[self._pos(letter)]  # Traverses and adds word to Trie
 
         curr.ender = True
-        curr.letters = [None for _ in range(len(curr.letters))]  # Cleans out leaves of finished word
+        # Cleans out leaves of finishing letter
+        curr.letters = [None for _ in range(len(curr.letters))]
         return
 
-    def update_winners(self):
+    def update_winners(self) -> None:
         """Does a depth first search through the tree and labels each word
         which player wins if you reach there. Then assuming each player plays optimally,
         updates the preceding letter with what move the turn player will make and the outcome
@@ -69,7 +74,8 @@ class Trie:
 
         :param bool odd_winner: Determines if you're starting on odd letter or even, defaults to True
         """
-        def recurse_update(curr_node: Trie.Node, turn_player: Player):
+
+        def recurse_update(curr_node: Trie.Node, turn_player: Player) -> None:
             """Recursive update of Trie DFS. Will first find lowest word, determines
             who wins once that word is reached, and updates the prior level to say what
             move a turn player would make based would win on the level below.
@@ -80,16 +86,21 @@ class Trie:
             if curr_node.ender:
                 curr_node.winner = turn_player
 
-            for dc in curr_node.letters:  # DFS
-                if dc is None:  continue
-                recurse_update(dc, turn_player.change_turn())
+            for letter in curr_node.letters:  # DFS
+                if letter is None:
+                    continue
+                recurse_update(letter, turn_player.change_turn())
                 # Checks if there's a move where turn_player forces a win
-                curr_node.winner = turn_player if dc.winner == turn_player else curr_node.winner
+                curr_node.winner = (
+                    turn_player if letter.winner == turn_player else curr_node.winner
+                )
 
             if curr_node.winner == Player.UNDETERMINED:
                 # If determined that there's no forcing winning move, meaning
                 # Only forcing winning moves for non-turn player
                 curr_node.winner = turn_player.change_turn()
+
+            return
 
         recurse_update(self.head, Player.YOU if self.first_move else Player.OTHER)
 
@@ -101,22 +112,24 @@ class Trie:
         :return str: 1 forced winning word for turn player. Returns "" empty string
         if no winning word
         """
+
         def recurse_search(curr: Trie.Node) -> str:  # Clean this function
             leaf_index = -1  # Determines if we're at a forced win point
             for i, letter in enumerate(curr.letters):
-                # Skips out non valid letters and opponent wins
-                if letter is None or letter.winner == Player.OTHER:  continue
+                if letter is None or letter.winner == Player.OTHER:
+                    continue
 
-                # Must be on level with only ender word choices next
-                leaf_index = i if letter.ender and leaf_index>=-1 else -2
+                # Must be on level with only ender word choices to return a char
+                leaf_index = i if letter.ender and leaf_index >= -1 else -2
 
                 # DFS, searches for a forced winning word, if it exists,
                 # Adds current character to recreate the word bottom up
-                temp = recurse_search(letter)
-                if temp:  return f"{self._char(i)}{temp}"
+                if tail_word := recurse_search(letter):
+                    return f"{self._char(i)}{tail_word}"
 
-            # We've hit a forced win point, and the index getschar of win
-            if leaf_index >= 0:  return self._char(leaf_index)
+            # We've hit a forced win point, and the index gets char of win
+            if leaf_index >= 0:
+                return self._char(leaf_index)
             # Nothing of use found, most likely a deadend leading to Player.OTHER victory
             return ""
 
@@ -132,8 +145,24 @@ class Trie:
 
         for letter in prefix:
             if curr.ender or curr.letters[self._pos(letter)] is None:
-                raise Exception("No word with prefix found or game is already over")
+                raise Exception("No word with prefix found")
 
-            curr = curr.letters[self._pos(letter)]  # Traverses and adds word to Trie to traverse Trie
+            curr = curr.letters[self._pos(letter)]  # Traverses and adds word to Trie
 
-        return Trie(self.first_move != len(letter)%2, self.rbase, self.refchar, curr)
+        # Wraps remaining nodes in a new Trie
+        return Trie(self.first_move != len(letter) % 2, self.rbase, self.refchar, curr)
+
+
+def test(prefix: str, words: List[str]) -> str:
+    d = Trie(True)
+
+    for word in words:
+        d.add_word(word)
+
+    d = d.find_prefix(prefix)
+    d.update_winners()
+    return d.find_a_winner()
+
+
+if __name__ == "__main__":
+    print(test(prefix="b", words=["tefaefa", "befa", "becas", "sefa"]))
