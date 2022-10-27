@@ -1,7 +1,4 @@
-# Ghost
-
-Got hit with a fairly difficult problem. Wanted to solve it and get feedback on the solution
-
+# Optimal [Ghost](https://en.wikipedia.org/wiki/Ghost_(game))
 
 ## Solution:
 Used a Trie to create a pseudo search dictionary of the words provided. Added each given word to the dictionary. Then we compute the winners of the game for each word using a Trie DFS. Following, we then find the optimal word using another DFS but only pursuing a path from the head node to end where Player.YOU is always the winner, meaning a forced win. 
