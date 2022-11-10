@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from enum import Enum, auto
-from typing import List, Optional
+from typing import List, Optional, Self
 
 
 class Player(Enum):
@@ -9,7 +7,7 @@ class Player(Enum):
     OTHER = auto()
     UNKNOWN = auto()
 
-    def change_turn(self) -> Player:
+    def change_turn(self) -> Self:
         if self == Player.UNKNOWN:
             raise NotImplementedError(f"{Player.UNKNOWN} is for unitialized states")
         return Player.OTHER if self == Player.YOU else Player.YOU
@@ -25,7 +23,6 @@ class Trie:
             self.letters: List[Optional[Trie.Node]] = [None for _ in range(rbase)]
             self.winner: Player = Player.UNKNOWN  # Winner of current level
             self.ender = False  # If current level is an ending word
-            return
 
     def __init__(
         self,
@@ -33,7 +30,7 @@ class Trie:
         rbase: int = 26,
         refchar: str = "a",
         pref: str = "",
-        head: Node = None,
+        head: Optional[Node] = None,
     ):
         self.rbase = rbase
         self.first_move = first_move
@@ -48,7 +45,7 @@ class Trie:
     def _char(self, pos: int) -> str:
         return chr(pos + ord(self.refchar))
 
-    def find_prefix(self, prefix: str) -> Trie:
+    def find_prefix(self, prefix: str) -> Self:
         """Traverses trie according to prefix and returns a wrapper around current node
 
         :param str prefix: Specified prefix of starting word
@@ -61,7 +58,7 @@ class Trie:
                 raise Exception("No word with prefix found")
 
             # Traverses and adds word to Trie, mypy error with guard clause
-            curr = curr.letters[self._pos(letter)]  # type: ignore
+            curr = curr.letters[self._pos(letter)] # type: ignore
 
         # Wraps remaining nodes in a new Trie
         return Trie(
